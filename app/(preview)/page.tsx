@@ -48,6 +48,14 @@ export default function Chat() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [toolCall, setToolCall] = useState<string>();
+  const [showSignIn, setShowSignIn] = useState(false);
+  const [signInEmail, setSignInEmail] = useState("");
+  const [signingIn, setSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState("");
+  const [showSignUp, setShowSignUp] = useState(false);
+  const [signUpName, setSignUpName] = useState("");
+  const [signingUp, setSigningUp] = useState(false);
+  const [signUpError, setSignUpError] = useState("");
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   // Load user data
@@ -75,24 +83,18 @@ export default function Chat() {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
     setDarkMode(isDark);
-
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', isDark);
+    document.body.classList.toggle('dark', isDark);
   }, []);
 
-  const toggleTheme = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    localStorage.setItem('theme', newMode ? 'dark' : 'light');
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    document.body.classList.toggle('dark', darkMode);
+    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+  const toggleTheme = () => {
+    setDarkMode((prev) => !prev);
   };
 
   const handleSettingsClick = () => {
@@ -152,19 +154,201 @@ export default function Chat() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950 font-[Helvetica,Arial,sans-serif]">
+    <div className={cn(
+      "flex h-screen font-[Helvetica,Arial,sans-serif]",
+      darkMode ? "bg-gray-950" : "bg-gray-50"
+    )}>
+      {/* Enhanced Sign In/Sign Up Modal */}
+      {(showSignIn || showSignUp) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 transition-all">
+          <div className={cn(
+            "bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-8 w-full max-w-md relative animate-fadeIn border border-gray-200 dark:border-gray-700",
+          )}>
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+              onClick={() => { setShowSignIn(false); setShowSignUp(false); }}
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="mb-6 text-center">
+              <Image src="/NOUN-logo.png" alt="NOUN Logo" width={40} height={40} className="mx-auto mb-2" />
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{!showSignUp ? "Sign In" : "Sign Up"}</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{!showSignUp ? "Welcome back! Please sign in to continue." : "Create your account to get started."}</p>
+            </div>
+            {!showSignUp ? (
+              <>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setSigningIn(true);
+                    setSignInError("");
+                    try {
+                      const res = await fetch("/api/profile", {
+                        method: "GET",
+                        headers: { "x-user-email": signInEmail },
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setUserData(data);
+                        setShowSignIn(false);
+                      } else {
+                        setSignInError("User not found or invalid email.");
+                      }
+                    } catch (err) {
+                      setSignInError("Sign in failed. Try again.");
+                    } finally {
+                      setSigningIn(false);
+                    }
+                  }}
+                  className="space-y-5"
+                >
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email address</label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={signInEmail}
+                      onChange={e => setSignInEmail(e.target.value)}
+                      required
+                      autoFocus
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#00D084]"
+                      placeholder="Enter your email"
+                      disabled={signingIn}
+                    />
+                  </div>
+                  {signInError && (
+                    <p className="text-xs text-red-500 text-center">{signInError}</p>
+                  )}
+                  <div className="flex flex-col space-y-2 mt-2">
+                    <Button type="submit" disabled={signingIn || !signInEmail} className="bg-[#00D084] text-white w-full rounded-lg">
+                      {signingIn ? "Signing In..." : "Sign In"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setShowSignIn(false)} className="w-full rounded-lg">
+                      Cancel
+                    </Button>
+                  </div>
+                  {signInError && (
+                    <div className="flex flex-col items-center mt-3">
+                      <Button type="button" variant="secondary" onClick={() => { setShowSignUp(true); setShowSignIn(false); setSignUpName(""); setSignUpError(""); }} className="w-full rounded-lg">
+                        Sign Up Instead
+                      </Button>
+                    </div>
+                  )}
+                </form>
+                <div className="my-6 flex items-center">
+                  <div className="flex-grow border-t border-gray-200 dark:border-gray-700" />
+                  <span className="mx-3 text-xs text-gray-400">or</span>
+                  <div className="flex-grow border-t border-gray-200 dark:border-gray-700" />
+                </div>
+                <div className="flex flex-col space-y-2">
+                  <Button type="button" variant="outline" className="w-full flex items-center justify-center gap-2 rounded-lg" disabled>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.35 11.1h-9.17v2.98h5.24c-.23 1.22-1.39 3.59-5.24 3.59-3.15 0-5.72-2.61-5.72-5.83s2.57-5.83 5.72-5.83c1.8 0 3.01.77 3.7 1.43l2.53-2.46C16.13 3.99 14.3 3 12 3 6.48 3 2 7.48 2 13s4.48 10 10 10c5.52 0 10-4.48 10-10 0-.68-.07-1.34-.2-1.9z"/><path fill="#34A853" d="M3.88 7.36l2.53 1.86C7.41 8.13 9.52 7 12 7c2.48 0 4.59 1.13 5.59 2.22l2.53-1.86C18.13 5.99 15.3 5 12 5c-3.3 0-6.13.99-8.12 2.36z"/><path fill="#FBBC05" d="M12 21c-2.48 0-4.59-1.13-5.59-2.22l-2.53 1.86C5.87 20.01 8.7 21 12 21c3.3 0 6.13-.99 8.12-2.36l-2.53-1.86C16.59 19.87 14.48 21 12 21z"/><path fill="#EA4335" d="M21.35 11.1h-9.17v2.98h5.24c-.23 1.22-1.39 3.59-5.24 3.59-3.15 0-5.72-2.61-5.72-5.83s2.57-5.83 5.72-5.83c1.8 0 3.01.77 3.7 1.43l2.53-2.46C16.13 3.99 14.3 3 12 3 6.48 3 2 7.48 2 13s4.48 10 10 10c5.52 0 10-4.48 10-10 0-.68-.07-1.34-.2-1.9z"/></svg>
+                    Continue with Google
+                  </Button>
+                  <Button type="button" variant="outline" className="w-full flex items-center justify-center gap-2 rounded-lg" disabled>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24"><path fill="#1877F2" d="M22.675 0h-21.35C.6 0 0 .6 0 1.326v21.348C0 23.4.6 24 1.326 24h11.495v-9.294H9.691v-3.622h3.13V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.797.143v3.24l-1.918.001c-1.504 0-1.797.715-1.797 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.116C23.4 24 24 23.4 24 22.674V1.326C24 .6 23.4 0 22.675 0"/></svg>
+                    Continue with Facebook
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setSigningUp(true);
+                    setSignUpError("");
+                    try {
+                      // Call sign-up API
+                      const res = await fetch("/api/admin/users", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ email: signInEmail, name: signUpName, isAdmin: false, totalTokensUsed: 0 }),
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setUserData(data);
+                        setShowSignUp(false);
+                        setShowSignIn(false);
+                      } else {
+                        let errorMsg = "Sign up failed. Try again.";
+                        try {
+                          const errorData = await res.json();
+                          if (errorData?.error?.toLowerCase().includes("unique") || errorData?.error?.toLowerCase().includes("duplicate")) {
+                            errorMsg = "Email already registered. Please sign in instead.";
+                          }
+                        } catch {}
+                        setSignUpError(errorMsg);
+                      }
+                    } catch (err) {
+                      setSignUpError("Sign up failed. Try again.");
+                    } finally {
+                      setSigningUp(false);
+                    }
+                  }}
+                  className="space-y-5"
+                >
+                  <div>
+                    <label htmlFor="signup-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      value={signUpName}
+                      onChange={e => setSignUpName(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-[#00D084]"
+                      placeholder="Enter your name"
+                      disabled={signingUp}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email address</label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      value={signInEmail}
+                      disabled
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700"
+                    />
+                  </div>
+                  {signUpError && <p className="text-xs text-red-500 text-center">{signUpError}</p>}
+                  {signUpError && signUpError.includes("Email already registered") && (
+                    <div className="flex flex-col items-center mt-3">
+                      <Button type="button" variant="secondary" onClick={() => { setShowSignUp(false); setShowSignIn(true); setSignInError(""); }} className="w-full rounded-lg">
+                        Sign In Instead
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex flex-col space-y-2 mt-2">
+                    <Button type="submit" disabled={signingUp || !signUpName} className="bg-[#00D084] text-white w-full rounded-lg">
+                      {signingUp ? "Signing Up..." : "Sign Up"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => { setShowSignUp(false); setShowSignIn(true); }} className="w-full rounded-lg">
+                      Back
+                    </Button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {/* Sidebar Overlay (Mobile) */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          className={cn(
+            "fixed inset-0 z-40 lg:hidden",
+            darkMode ? "bg-black/80" : "bg-black/50"
+          )}
           onClick={() => setSidebarOpen(false)}
         />
       )}
-
       {/* Sidebar */}
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 sm:w-72 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 shadow-lg lg:shadow-none",
+          "fixed inset-y-0 left-0 z-50 w-64 sm:w-72 border-r transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 shadow-lg lg:shadow-none",
+          darkMode ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200",
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -187,7 +371,7 @@ export default function Chat() {
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="hidden lg:flex h-6 w-6 sm:h-8 sm:w-8 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700"
+              className="h-6 w-6 sm:h-8 sm:w-8 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700"
             >
               {darkMode ? <Sun className="w-3 h-3 sm:w-4 sm:h-4" /> : <Moon className="w-3 h-3 sm:w-4 sm:h-4" />}
             </Button>
@@ -200,7 +384,7 @@ export default function Chat() {
               <X className="w-3 h-3 sm:w-4 sm:h-4" />
             </Button>
           </div>
-        </div>
+        </div> {/* End Sidebar Header */}
 
         {/* New Chat Button */}
         <div className="p-2 sm:p-4 border-b border-gray-200 dark:border-gray-700">
@@ -212,7 +396,7 @@ export default function Chat() {
             New Chat
           </Button>
           <Button
-            onClick={() => window.location.href = '/signin'}
+            onClick={() => setShowSignIn(true)}
             className="w-full justify-start mt-2 border border-[#00D084] text-[#00D084] bg-white hover:bg-[#00D084] hover:text-white h-8 sm:h-10 text-sm"
           >
             <User className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
@@ -281,10 +465,13 @@ export default function Chat() {
             <p className="text-center text-gray-500 dark:text-gray-400 mt-2">Failed to load user data.</p>
           )}
         </div>
-      </div>
+      </div> {/* End Sidebar */}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-950">
+      <div className={cn(
+        "flex-1 flex flex-col min-w-0",
+        darkMode ? "bg-gray-950" : "bg-white"
+      )}>
         {/* Mobile menu button */}
         <div className="lg:hidden flex items-center justify-between h-12 sm:h-14 px-3 sm:px-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
           <Button
@@ -451,23 +638,26 @@ export default function Chat() {
                   onChange={handleInputChange}
                   placeholder="Type your message..."
                   disabled={false}
-                  className="pr-10 sm:pr-12 h-9 sm:h-10 border-gray-300 dark:border-gray-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-gray-800 text-sm"
+                  className={cn(
+                    "pr-10 sm:pr-12 h-9 sm:h-10 border-gray-300 focus:border-blue-500 bg-white text-sm text-gray-900 placeholder:text-gray-400",
+                    darkMode && "bg-gray-900 border-gray-700 text-gray-100 placeholder:text-gray-400 focus:border-blue-400"
+                  )}
                 />
                 <div className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2">
                   <Button
                     type="submit"
                     size="icon"
                     disabled={!input.trim()}
-                    className="h-5 w-5 sm:h-6 sm:w-6 bg-[#00D084] hover:bg-[#00D084] disabled:bg-gray-300 dark:disabled:bg-gray-600"
+                    className="h-5 w-5 sm:h-6 sm:w-6 bg-[#00D084] hover:bg-[#00D084] disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white dark:text-white"
                   >
-                    <Send className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                    <Send className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white dark:text-white" />
                   </Button>
                 </div>
               </div>
             </div>
           </form>
         </div>
-      </div>
+      </div> {/* End Main Content */}
     </div>
   );
 }

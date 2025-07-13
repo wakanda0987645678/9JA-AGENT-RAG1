@@ -1,10 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { env } from "@/lib/env.mjs";
 
-if (!env.DATABASE_URL) {
-  console.warn("DATABASE_URL not found. Database operations will fail.");
-}
-
-const sql = env.DATABASE_URL ? neon(env.DATABASE_URL) : null;
-export const db = sql ? drizzle(sql) : null;
+const DATABASE_URL = "postgresql://neondb_owner:npg_UyC8KHAvM1WP@ep-calm-recipe-a7e36puw-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+const sql = neon(DATABASE_URL);
+export const db = drizzle(sql);
